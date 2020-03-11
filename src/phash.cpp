@@ -1,6 +1,6 @@
 /*
  *  Copyright (c) 2013 Aaron Marasco. All rights reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -8,10 +8,10 @@
  * distribute, sublicense, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -108,7 +108,7 @@ NAN_METHOD(ImageHashAsync) {
     Nan::ThrowError("Callback is required and must be an Function.");
   }
 
-  String::Utf8Value file_arg(info[0]);
+  String::Utf8Value file_arg(v8::Isolate::GetCurrent(), info[0]);
   string file = string(toCString(file_arg));
 
   Nan::Callback *callback = new Nan::Callback(info[1].As<Function>());
@@ -118,7 +118,7 @@ NAN_METHOD(ImageHashAsync) {
 
 void ImageHashSync(const Nan::FunctionCallbackInfo<v8::Value>& args) {
     Nan::HandleScope scope;
-    String::Utf8Value str(args[0]);
+    String::Utf8Value str(v8::Isolate::GetCurrent(), args[0]);
     string result = getHash(*str);
     args.GetReturnValue().Set(Nan::New(result.c_str()).ToLocalChecked());
 }
@@ -126,8 +126,8 @@ void ImageHashSync(const Nan::FunctionCallbackInfo<v8::Value>& args) {
 void HammingDistance(const Nan::FunctionCallbackInfo<v8::Value>& args) {
     Nan::HandleScope scope;
 
-    String::Utf8Value arg0(args[0]);
-    String::Utf8Value arg1(args[1]);
+    String::Utf8Value arg0(v8::Isolate::GetCurrent(), args[0]);
+    String::Utf8Value arg1(v8::Isolate::GetCurrent(), args[1]);
     string aString = string(toCString(arg0));
     string bString = string(toCString(arg1));
 
@@ -147,21 +147,31 @@ void HammingDistance(const Nan::FunctionCallbackInfo<v8::Value>& args) {
 void oldHash(const Nan::FunctionCallbackInfo<v8::Value>& args) {
     Nan::HandleScope scope;
 
-    String::Utf8Value str(args[0]);
+    String::Utf8Value str(v8::Isolate::GetCurrent(), args[0]);
     const char* file = toCString(str);
     ulong64 hash = 0;
     ph_dct_imagehash(file, hash);
     args.GetReturnValue().Set(Nan::New<v8::Number>(hash));
 }
 
-void RegisterModule(Handle<Object> target) {
-    Nan::SetMethod(target, "imageHashSync", ImageHashSync);
-    Nan::SetMethod(target, "imageHash", ImageHashAsync);
-    Nan::SetMethod(target, "hammingDistance", HammingDistance);
+NAN_MODULE_INIT(InitAll) {
+  Nan::Set(target,
+      Nan::New<v8::String>("imageHashSync").ToLocalChecked(),
+      Nan::GetFunction(Nan::New<v8::FunctionTemplate>(ImageHashSync)).ToLocalChecked());
+  Nan::Set(target,
+      Nan::New<v8::String>("imageHash").ToLocalChecked(),
+      Nan::GetFunction(Nan::New<v8::FunctionTemplate>(ImageHashAsync)).ToLocalChecked());
+  Nan::Set(target,
+      Nan::New<v8::String>("hammingDistance").ToLocalChecked(),
+      Nan::GetFunction(Nan::New<v8::FunctionTemplate>(HammingDistance)).ToLocalChecked());
 
-    // methods below are deprecated
-    Nan::SetMethod(target, "imagehash", ImageHashAsync);
-    Nan::SetMethod(target, "oldHash", oldHash);
+  // methods below are deprecated
+  Nan::Set(target,
+      Nan::New<v8::String>("imagehash").ToLocalChecked(),
+      Nan::GetFunction(Nan::New<v8::FunctionTemplate>(ImageHashAsync)).ToLocalChecked());
+  Nan::Set(target,
+      Nan::New<v8::String>("oldHash").ToLocalChecked(),
+      Nan::GetFunction(Nan::New<v8::FunctionTemplate>(oldHash)).ToLocalChecked());
 }
 
-NODE_MODULE(pHashBinding, RegisterModule);
+NODE_MODULE(pHashBinding, InitAll);
